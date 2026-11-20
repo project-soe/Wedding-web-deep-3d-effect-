@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Wedding of Arya & Kirana</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Cormorant Garamond (Elegan/Klasik) & Plus Jakarta Sans (Modern/Bersih) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome untuk Ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Three.js untuk Efek Partikel Kelopak Bunga 3D di Latar Belakang -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Tone.js untuk Musik Latar Instrumental Lembut (Synthesized Piano/Chimes tanpa perlu file MP3 eksternal) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['"Cormorant Garamond"', 'serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        gold: {
+                            100: '#F9F1D8',
+                            300: '#E6C875',
+                            500: '#C59B27',
+                            700: '#8E6B13',
+                        },
+                        cream: '#FAF8F5',
+                        charcoal: '#1C1917',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom CSS untuk Efek Kedalaman 3D & Animasi */
+        html, body {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            background-color: #FAF8F5;
+            color: #1C1917;
+        }
+
+        /* Canvas 3D Background */
+        #three-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Konten di atas canvas */
+        .content-layer {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            overflow-x: clip;
+        }
+
+        /* Efek Kartu 3D Tilt */
+        .tilt-card {
+            transform-style: preserve-3d;
+            transition: transform 0.15s ease-out, box-shadow 0.3s ease;
+            will-change: transform;
+        }
+
+        .tilt-card:hover {
+            box-shadow: 0 25px 50px -12px rgba(197, 155, 39, 0.25);
+        }
+
+        /* Elemen di dalam kartu yang menonjol ke depan (Z-axis) */
+        .pop-out-sm {
+            transform: translateZ(20px);
+        }
+        .pop-out-md {
+            transform: translateZ(40px);
+        }
+        .pop-out-lg {
+            transform: translateZ(60px);
+        }
+
+        /* Animasi Muncul saat Scroll (Scroll Reveal 3D) */
+        .reveal-3d {
+            opacity: 0;
+            transform: translateY(40px) rotateX(10deg) scale(0.96);
+            transition: all 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+            transform-style: preserve-3d;
+        }
+
+        .reveal-3d.active {
+            opacity: 1;
+            transform: translateY(0) rotateX(0deg) scale(1);
+        }
+
+        /* Animasi Melayang Halus */
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-12px) rotate(1deg); }
+        }
+        .animate-float {
+            animation: floatSlow 6s ease-in-out infinite;
+        }
+
+        /* Glassmorphism Mewah */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.78);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(197, 155, 39, 0.25);
+        }
+
+        /* Transisi Cover Undangan */
+        #cover-screen {
+            transition: transform 1.1s cubic-bezier(0.77, 0, 0.175, 1), opacity 0.9s ease;
+        }
+        #cover-screen.opened {
+            transform: translateY(-100%) scale(1.05);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #FAF8F5;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #C59B27;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased selection:bg-gold-300 selection:text-charcoal">
+
+    <!-- Canvas Three.js untuk Efek Kelopak Bunga & Cahaya Emas 3D -->
+    <canvas id="three-canvas"></canvas>
+
+    <!-- Notifikasi Toast Pengganti alert() -->
+    <div id="toast-notification" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] opacity-0 pointer-events-none transition-all duration-300 glass-panel px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 border-l-4 border-gold-500 max-w-[calc(100vw-2.5rem)]">
+        <i class="fa-solid fa-circle-check text-gold-500 text-lg"></i>
+        <span id="toast-message" class="text-sm font-medium text-charcoal">Pesan notifikasi</span>
+    </div>
+
+    <!-- =====================================================================
+         1. COVER UNDANGAN (AMPOP PEMBUKA 3D)
+    ====================================================================== -->
+    <section id="cover-screen" class="fixed inset-0 z-40 flex items-center justify-center bg-charcoal text-cream px-4 overflow-hidden">
+        <!-- Latar Belakang Foto dengan Efek Parallax -->
+        <div class="absolute inset-0 opacity-45 bg-cover bg-center scale-105 transition-transform duration-1000" 
+             style="background-image: url('https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1920&q=80');">
+        </div>
+        <div class="absolute inset-0 bg-gradient-to-t from-charcoal via-charcoal/60 to-transparent"></div>
+
+        <!-- Kartu Cover dengan Efek Tilt 3D -->
+        <div class="tilt-card relative z-10 max-w-md w-full p-8 sm:p-10 rounded-3xl border border-gold-500/40 bg-charcoal/70 backdrop-blur-md text-center shadow-2xl">
+            <p class="pop-out-sm text-xs uppercase tracking-[0.3em] text-gold-300 mb-3">The Wedding of</p>
+            <h1 class="pop-out-md font-serif text-5xl sm:text-6xl font-bold text-white mb-2 tracking-wide">
+                Arya <span class="text-gold-300 font-normal italic">&</span> Kirana
+            </h1>
+            <p class="pop-out-sm text-sm text-stone-300 mb-8">Sabtu, 12 Desember 2026</p>
+
+            <div class="pop-out-sm bg-white/10 rounded-2xl p-4 mb-8 border border-white/10">
+                <p class="text-xs text-stone-300 mb-1">Kepada Yth. Bapak/Ibu/Saudara/i:</p>
+                <p id="guest-name-display" class="font-serif text-xl font-semibold text-gold-300">Tamu Undangan Spesial</p>
+            </div>
+
+            <button id="open-invitation-btn" class="pop-out-lg w-full py-3.5 px-6 rounded-full bg-gradient-to-r from-gold-500 to-gold-300 text-charcoal font-semibold text-sm tracking-wider uppercase shadow-lg shadow-gold-500/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-envelope-open-text"></i>
+                <span>Buka Undangan</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- =====================================================================
+         NAVIGASI MELAYANG (FLOATING DOCK) & TOMBOL MUSIK
+    ====================================================================== -->
+    <div id="floating-controls" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-30 opacity-0 pointer-events-none transition-opacity duration-700 w-[92%] max-w-md">
+        <nav class="glass-panel rounded-full px-4 py-2.5 shadow-2xl flex items-center justify-between">
+            <a href="#hero" class="p-2 text-charcoal hover:text-gold-500 transition-colors" title="Beranda">
+                <i class="fa-solid fa-house text-sm"></i>
+            </a>
+            <a href="#couple" class="p-2 text-charcoal hover:text-gold-500 transition-colors" title="Mempelai">
+                <i class="fa-solid fa-heart text-sm"></i>
+            </a>
+            <a href="#events" class="p-2 text-charcoal hover:text-gold-500 transition-colors" title="Acara">
+                <i class="fa-solid fa-calendar-check text-sm"></i>
+            </a>
+            <a href="#gallery" class="p-2 text-charcoal hover:text-gold-500 transition-colors" title="Galeri">
+                <i class="fa-solid fa-images text-sm"></i>
+            </a>
+            <a href="#rsvp" class="p-2 text-charcoal hover:text-gold-500 transition-colors" title="RSVP & Ucapan">
+                <i class="fa-solid fa-comment-dots text-sm"></i>
+            </a>
+            <div class="h-5 w-[1px] bg-gold-500/30"></div>
+            <button id="music-toggle-btn" class="w-9 h-9 rounded-full bg-gold-500 text-white flex items-center justify-center shadow-md hover:bg-gold-700 transition-all cursor-pointer" title="Putar/Jeda Musik">
+                <i id="music-icon" class="fa-solid fa-music text-xs animate-spin" style="animation-duration: 4s;"></i>
+            </button>
+        </nav>
+    </div>
+
+    <!-- =====================================================================
+         KONTEN UTAMA UNDANGAN
+    ====================================================================== -->
+    <main class="content-layer">
+
+        <!-- 2. HERO SECTION DENGAN KEDALAMAN PARALLAX -->
+        <section id="hero" class="min-h-screen flex flex-col items-center justify-center text-center px-4 py-20 relative overflow-hidden">
+            <div class="max-w-3xl mx-auto">
+                <div class="inline-block px-4 py-1.5 rounded-full border border-gold-500/40 bg-white/60 backdrop-blur-sm text-gold-700 text-xs uppercase tracking-[0.25em] mb-6 animate-float">
+                    We Are Getting Married
+                </div>
+                
+                <h2 class="font-serif text-6xl sm:text-8xl font-bold text-charcoal mb-4 leading-tight">
+                    Arya <span class="text-gold-500 italic font-normal">&</span> Kirana
+                </h2>
+                
+                <p class="text-stone-600 max-w-lg mx-auto text-sm sm:text-base leading-relaxed mb-10">
+                    "Dan di antara tanda-tanda kekuasaan-Nya ialah Dia menciptakan untukmu isteri-isteri dari jenismu sendiri, supaya kamu cenderung dan merasa tenteram kepadanya."
+                    <span class="block font-semibold text-gold-700 mt-1">(QS. Ar-Rum: 21)</span>
+                </p>
+
+                <!-- Bingkai Foto Utama dengan Efek 3D Tilt -->
+                <div class="tilt-card relative max-w-md mx-auto rounded-t-full rounded-b-3xl p-3 glass-panel shadow-2xl">
+                    <div class="overflow-hidden rounded-t-full rounded-b-2xl aspect-[4/5] bg-stone-900">
+                        <img src="https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&w=900&q=80" 
+                             alt="Ilustrasi Anime Arya dan Kirana" 
+                             onerror="this.src='https://placehold.co/600x750/292524/E6C875?text=Anime+Wedding+Art'"
+                             class="w-full h-full object-cover hover:scale-105 transition-transform duration-700">
+                    </div>
+                    <!-- Badge Tanggal Melayang di Depan Foto (Z-Index 3D) -->
+                    <div class="pop-out-md absolute -bottom-5 left-1/2 -translate-x-1/2 bg-charcoal text-cream px-6 py-2.5 rounded-full shadow-xl border border-gold-500/50 whitespace-nowrap">
+                        <span class="text-xs tracking-[0.2em] uppercase text-gold-300">12 . 12 . 2026</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. PROFIL MEMPELAI (3D INTERACTIVE CARDS) -->
+        <section id="couple" class="py-24 px-4 max-w-5xl mx-auto">
+            <div class="text-center mb-16 reveal-3d">
+                <p class="text-xs uppercase tracking-[0.25em] text-gold-700 mb-2">Assalamu'alaikum Wr. Wb.</p>
+                <h3 class="font-serif text-4xl sm:text-5xl font-bold text-charcoal mb-4">Mempelai Berbahagia</h3>
+                <p class="text-stone-600 text-sm sm:text-base max-w-xl mx-auto">
+                    Dengan memohon rahmat dan ridho Allah SWT, kami bermaksud menyelenggarakan pernikahan putra-putri kami:
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+                <!-- Kartu Mempelai Pria -->
+                <div class="reveal-3d tilt-card glass-panel rounded-3xl p-8 text-center shadow-xl">
+                    <div class="pop-out-md w-40 h-40 mx-auto mb-6 rounded-full p-1.5 bg-gradient-to-tr from-gold-500 to-gold-100 shadow-lg">
+                        <img src="https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=500&q=80" 
+                             alt="Ilustrasi Anime Arya Pratama"
+                             onerror="this.src='https://placehold.co/400x400/1C1917/E6C875?text=Arya+Anime'"
+                             class="w-full h-full object-cover rounded-full">
+                    </div>
+                    <h4 class="pop-out-sm font-serif text-3xl font-bold text-charcoal mb-1">Arya Pratama, S.T.</h4>
+                    <p class="text-xs uppercase tracking-widest text-gold-700 font-semibold mb-3">Putra Pertama dari</p>
+                    <p class="text-stone-600 text-sm mb-5">Bapak Ir. Hendra Wijaya & Ibu Ratna Sari</p>
+                    <a href="https://instagram.com" target="_blank" class="pop-out-sm inline-flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full bg-charcoal text-cream hover:bg-gold-500 transition-colors">
+                        <i class="fa-brands fa-instagram"></i> @aryapratama
+                    </a>
+                </div>
+
+                <!-- Kartu Mempelai Wanita -->
+                <div class="reveal-3d tilt-card glass-panel rounded-3xl p-8 text-center shadow-xl">
+                    <div class="pop-out-md w-40 h-40 mx-auto mb-6 rounded-full p-1.5 bg-gradient-to-tr from-gold-500 to-gold-100 shadow-lg">
+                        <img src="https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&w=500&q=80" 
+                             alt="Ilustrasi Anime Kirana Larasati"
+                             onerror="this.src='https://placehold.co/400x400/1C1917/E6C875?text=Kirana+Anime'"
+                             class="w-full h-full object-cover rounded-full">
+                    </div>
+                    <h4 class="pop-out-sm font-serif text-3xl font-bold text-charcoal mb-1">Kirana Larasati, S.Ds.</h4>
+                    <p class="text-xs uppercase tracking-widest text-gold-700 font-semibold mb-3">Putri Bungsu dari</p>
+                    <p class="text-stone-600 text-sm mb-5">Bapak Drs. Bambang Sutrisno & Ibu Dewi Lestari</p>
+                    <a href="https://instagram.com" target="_blank" class="pop-out-sm inline-flex items-center gap-2 text-xs font-medium px-4 py-2 rounded-full bg-charcoal text-cream hover:bg-gold-500 transition-colors">
+                        <i class="fa-brands fa-instagram"></i> @kiranalarasati
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. COUNTDOWN & DETAIL ACARA -->
+        <section id="events" class="py-24 px-4 bg-charcoal text-cream relative">
+            <div class="max-w-5xl mx-auto">
+                <div class="text-center mb-14 reveal-3d">
+                    <p class="text-xs uppercase tracking-[0.25em] text-gold-300 mb-2">Save The Date</p>
+                    <h3 class="font-serif text-4xl sm:text-5xl font-bold text-white mb-6">Waktu & Lokasi Acara</h3>
+                    
+                    <!-- Hitung Mundur Real-time -->
+                    <div id="countdown-container" class="grid grid-cols-4 gap-3 sm:gap-6 max-w-lg mx-auto">
+                        <div class="bg-white/10 backdrop-blur-md border border-gold-500/30 rounded-2xl p-3 sm:p-4">
+                            <span id="days" class="block font-serif text-3xl sm:text-4xl font-bold text-gold-300">00</span>
+                            <span class="text-[10px] sm:text-xs uppercase tracking-wider text-stone-300">Hari</span>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-md border border-gold-500/30 rounded-2xl p-3 sm:p-4">
+                            <span id="hours" class="block font-serif text-3xl sm:text-4xl font-bold text-gold-300">00</span>
+                            <span class="text-[10px] sm:text-xs uppercase tracking-wider text-stone-300">Jam</span>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-md border border-gold-500/30 rounded-2xl p-3 sm:p-4">
+                            <span id="minutes" class="block font-serif text-3xl sm:text-4xl font-bold text-gold-300">00</span>
+                            <span class="text-[10px] sm:text-xs uppercase tracking-wider text-stone-300">Menit</span>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-md border border-gold-500/30 rounded-2xl p-3 sm:p-4">
+                            <span id="seconds" class="block font-serif text-3xl sm:text-4xl font-bold text-gold-300">00</span>
+                            <span class="text-[10px] sm:text-xs uppercase tracking-wider text-stone-300">Detik</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kartu Jadwal Akad & Resepsi -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Akad Nikah -->
+                    <div class="reveal-3d tilt-card bg-white/5 border border-gold-500/30 rounded-3xl p-8 text-center backdrop-blur-sm">
+                        <div class="pop-out-md w-14 h-14 mx-auto mb-5 rounded-2xl bg-gold-500/20 text-gold-300 flex items-center justify-center text-2xl">
+                            <i class="fa-solid fa-ring"></i>
+                        </div>
+                        <h4 class="pop-out-sm font-serif text-3xl font-bold text-white mb-2">Akad Nikah</h4>
+                        <p class="text-gold-300 font-medium text-sm mb-4">Sabtu, 12 Desember 2026</p>
+                        <div class="space-y-2 text-stone-300 text-sm mb-6">
+                            <p><i class="fa-regular fa-clock text-gold-300 mr-2"></i>08.00 - 10.00 WIB</p>
+                            <p><i class="fa-solid fa-location-dot text-gold-300 mr-2"></i>Masjid Agung Al-Azhar, Jakarta Selatan</p>
+                        </div>
+                        <a href="https://maps.google.com/?q=Masjid+Agung+Al+Azhar+Jakarta" target="_blank" class="pop-out-sm inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-gold-500 text-charcoal font-semibold text-xs uppercase tracking-wider hover:bg-gold-300 transition-colors">
+                            <i class="fa-solid fa-map-location-dot"></i> Lihat Peta Lokasi
+                        </a>
+                    </div>
+
+                    <!-- Resepsi Pernikahan -->
+                    <div class="reveal-3d tilt-card bg-white/5 border border-gold-500/30 rounded-3xl p-8 text-center backdrop-blur-sm">
+                        <div class="pop-out-md w-14 h-14 mx-auto mb-5 rounded-2xl bg-gold-500/20 text-gold-300 flex items-center justify-center text-2xl">
+                            <i class="fa-solid fa-champagne-glasses"></i>
+                        </div>
+                        <h4 class="pop-out-sm font-serif text-3xl font-bold text-white mb-2">Resepsi Pernikahan</h4>
+                        <p class="text-gold-300 font-medium text-sm mb-4">Sabtu, 12 Desember 2026</p>
+                        <div class="space-y-2 text-stone-300 text-sm mb-6">
+                            <p><i class="fa-regular fa-clock text-gold-300 mr-2"></i>11.00 - 14.00 WIB</p>
+                            <p><i class="fa-solid fa-location-dot text-gold-300 mr-2"></i>The Glass House, Ritz-Carlton Jakarta</p>
+                        </div>
+                        <a href="https://maps.google.com/?q=The+Ritz+Carlton+Jakarta" target="_blank" class="pop-out-sm inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-gold-500 text-charcoal font-semibold text-xs uppercase tracking-wider hover:bg-gold-300 transition-colors">
+                            <i class="fa-solid fa-map-location-dot"></i> Lihat Peta Lokasi
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. GALERI MOMEN (3D DEPTH CARDS + LIGHTBOX MODAL) -->
+        <section id="gallery" class="py-24 px-4 max-w-6xl mx-auto">
+            <div class="text-center mb-14 reveal-3d">
+                <p class="text-xs uppercase tracking-[0.25em] text-gold-700 mb-2">Our Moments</p>
+                <h3 class="font-serif text-4xl sm:text-5xl font-bold text-charcoal">Galeri Ilustrasi</h3>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <!-- Ilustrasi 1 -->
+                <div class="reveal-3d tilt-card group relative overflow-hidden rounded-2xl aspect-[3/4] cursor-pointer shadow-lg bg-stone-900" onclick="openLightbox('https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1000&q=80')">
+                    <img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80" alt="Ilustrasi Anime 1" onerror="this.src='https://placehold.co/600x800/292524/E6C875?text=Scene+01'" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                    <div class="absolute inset-0 bg-charcoal/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <i class="fa-solid fa-magnifying-glass-plus text-white text-2xl"></i>
+                    </div>
+                </div>
+                <!-- Ilustrasi 2 -->
+                <div class="reveal-3d tilt-card group relative overflow-hidden rounded-2xl aspect-[3/4] cursor-pointer shadow-lg bg-stone-900" onclick="openLightbox('https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&w=1000&q=80')">
+                    <img src="https://images.unsplash.com/photo-1618336753974-aae8e04506aa?auto=format&fit=crop&w=600&q=80" alt="Ilustrasi Anime 2" onerror="this.src='https://placehold.co/600x800/292524/E6C875?text=Scene+02'" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                    <div class="absolute inset-0 bg-charcoal/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <i class="fa-solid fa-magnifying-glass-plus text-white text-2xl"></i>
+                    </div>
+                </div>
+                <!-- Ilustrasi 3 -->
+                <div class="reveal-3d tilt-card group relative overflow-hidden rounded-2xl aspect-[3/4] cursor-pointer shadow-lg bg-stone-900" onclick="openLightbox('https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=1000&q=80')">
+                    <img src="https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=600&q=80" alt="Ilustrasi Anime 3" onerror="this.src='https://placehold.co/600x800/292524/E6C875?text=Scene+03'" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                    <div class="absolute inset-0 bg-charcoal/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <i class="fa-solid fa-magnifying-glass-plus text-white text-2xl"></i>
+                    </div>
+                </div>
+                <!-- Ilustrasi 4 -->
+                <div class="reveal-3d tilt-card group relative overflow-hidden rounded-2xl aspect-[3/4] cursor-pointer shadow-lg bg-stone-900" onclick="openLightbox('https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&w=1000&q=80')">
+                    <img src="https://images.unsplash.com/photo-1613376023733-0a73315d9b06?auto=format&fit=crop&w=600&q=80" alt="Ilustrasi Anime 4" onerror="this.src='https://placehold.co/600x800/292524/E6C875?text=Scene+04'" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                    <div class="absolute inset-0 bg-charcoal/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <i class="fa-solid fa-magnifying-glass-plus text-white text-2xl"></i>
+                    </div>
+                </div>
+                <!-- Ilustrasi 5 -->
+                <div class="reveal-3d tilt-card group relative overflow-hidden rounded-2xl aspect-[3/4] cursor-pointer shadow-lg bg-stone-900" onclick="openLightbox('https://images.unsplash.com/photo-1541562232579-512a21360020?auto=format&fit=crop&w=1000&q=80')">
+                    <img src="https://images.unsplash.com/photo-1541562232579-512a21360020?auto=format&fit=crop&w=600&q=80" alt="Ilustrasi Anime 5" onerror="this.src='https://placehold.co/600x800/292524/E6C875?text=Scene+05'" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                    <div class="absolute inset-0 bg-charcoal/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <i class="fa-solid fa-magnifying-glass-plus text-white text-2xl"></i>
+                    </div>
+                </div>
+                <!-- Ilustrasi 6 -->
+                <div class="reveal-3d tilt-card group relative overflow-hidden rounded-2xl aspect-[3/4] cursor-pointer shadow-lg bg-stone-900" onclick="openLightbox('https://images.unsplash.com/photo-1580477667995-2b94f01c9516?auto=format&fit=crop&w=1000&q=80')">
+                    <img src="https://images.unsplash.com/photo-1580477667995-2b94f01c9516?auto=format&fit=crop&w=600&q=80" alt="Ilustrasi Anime 6" onerror="this.src='https://placehold.co/600x800/292524/E6C875?text=Scene+06'" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                    <div class="absolute inset-0 bg-charcoal/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <i class="fa-solid fa-magnifying-glass-plus text-white text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. AMPLOP DIGITAL (KARTU ATM 3D INTERAKTIF) -->
+        <section class="py-20 px-4 max-w-4xl mx-auto">
+            <div class="text-center mb-12 reveal-3d">
+                <p class="text-xs uppercase tracking-[0.25em] text-gold-700 mb-2">Wedding Gift</p>
+                <h3 class="font-serif text-4xl font-bold text-charcoal mb-3">Tanda Kasih</h3>
+                <p class="text-stone-600 text-sm max-w-lg mx-auto">
+                    Doa restu Anda merupakan karunia yang sangat berarti bagi kami. Namun jika memberi adalah ungkapan tanda kasih, Anda dapat memberi kado secara cashless.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Kartu Rekening 1 -->
+                <div class="reveal-3d tilt-card rounded-3xl p-7 bg-gradient-to-br from-charcoal via-stone-800 to-charcoal text-cream shadow-2xl border border-gold-500/40 relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-8">
+                        <span class="font-serif text-2xl font-bold text-gold-300 tracking-wider">BANK BCA</span>
+                        <i class="fa-solid fa-wifi rotate-90 text-stone-400"></i>
+                    </div>
+                    <p class="pop-out-md font-mono text-xl sm:text-2xl tracking-widest text-white mb-2" id="rek-bca">8830 1928 4410</p>
+                    <p class="text-xs uppercase tracking-wider text-stone-400 mb-6">a.n. Arya Pratama</p>
+                    <button onclick="copyToClipboard('883019284410', 'Nomor Rekening BCA')" class="pop-out-sm w-full py-2.5 rounded-xl bg-white/10 hover:bg-gold-500 hover:text-charcoal text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-regular fa-copy"></i> Salin Nomor Rekening
+                    </button>
+                </div>
+
+                <!-- Kartu Rekening 2 -->
+                <div class="reveal-3d tilt-card rounded-3xl p-7 bg-gradient-to-br from-gold-700 via-gold-500 to-gold-700 text-white shadow-2xl border border-white/30 relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-8">
+                        <span class="font-serif text-2xl font-bold text-white tracking-wider">BANK MANDIRI</span>
+                        <i class="fa-solid fa-wifi rotate-90 text-white/70"></i>
+                    </div>
+                    <p class="pop-out-md font-mono text-xl sm:text-2xl tracking-widest text-white mb-2" id="rek-mandiri">1300 0987 6543 2</p>
+                    <p class="text-xs uppercase tracking-wider text-gold-100 mb-6">a.n. Kirana Larasati</p>
+                    <button onclick="copyToClipboard('1300098765432', 'Nomor Rekening Mandiri')" class="pop-out-sm w-full py-2.5 rounded-xl bg-charcoal/80 hover:bg-charcoal text-white text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-regular fa-copy"></i> Salin Nomor Rekening
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. RSVP & BUKU TAMU INTERAKTIF -->
+        <section id="rsvp" class="py-24 px-4 max-w-4xl mx-auto mb-16">
+            <div class="glass-panel rounded-3xl p-8 sm:p-12 shadow-2xl reveal-3d">
+                <div class="text-center mb-10">
+                    <p class="text-xs uppercase tracking-[0.25em] text-gold-700 mb-2">RSVP & Wishes</p>
+                    <h3 class="font-serif text-4xl font-bold text-charcoal mb-2">Konfirmasi Kehadiran & Ucapan</h3>
+                    <p class="text-stone-600 text-sm">Kirimkan doa terbaik dan konfirmasi kehadiran Anda.</p>
+                </div>
+
+                <form id="rsvp-form" class="space-y-5 mb-12">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-charcoal mb-2">Nama Lengkap</label>
+                            <input type="text" id="sender-name" required placeholder="Masukkan nama Anda" class="w-full px-4 py-3 rounded-xl bg-white/80 border border-gold-500/30 focus:outline-none focus:border-gold-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-charcoal mb-2">Konfirmasi Kehadiran</label>
+                            <select id="attendance-status" class="w-full px-4 py-3 rounded-xl bg-white/80 border border-gold-500/30 focus:outline-none focus:border-gold-500 text-sm">
+                                <option value="Hadir">Ya, Saya Akan Hadir</option>
+                                <option value="Masih Ragu">Masih Ragu</option>
+                                <option value="Tidak Hadir">Maaf, Tidak Bisa Hadir</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-charcoal mb-2">Ucapan & Doa Restu</label>
+                        <textarea id="sender-wish" rows="3" required placeholder="Tuliskan ucapan selamat dan doa untuk kedua mempelai..." class="w-full px-4 py-3 rounded-xl bg-white/80 border border-gold-500/30 focus:outline-none focus:border-gold-500 text-sm"></textarea>
+                    </div>
+                    <button type="submit" class="w-full py-3.5 rounded-xl bg-charcoal text-cream hover:bg-gold-500 hover:text-charcoal font-semibold text-sm uppercase tracking-wider transition-all shadow-lg cursor-pointer">
+                        Kirim Ucapan & Konfirmasi
+                    </button>
+                </form>
+
+                <!-- Daftar Ucapan yang Masuk -->
+                <div class="border-t border-gold-500/20 pt-8">
+                    <h4 class="font-serif text-2xl font-bold text-charcoal mb-6 flex items-center gap-2">
+                        <span>Doa & Ucapan</span>
+                        <span id="wish-count" class="text-xs font-sans bg-gold-500 text-white px-2.5 py-0.5 rounded-full">3</span>
+                    </h4>
+                    <div id="wishes-list" class="space-y-4 max-h-80 overflow-y-auto pr-2">
+                        <!-- Ucapan Default -->
+                        <div class="bg-white/70 p-4 rounded-2xl border border-gold-500/15">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="font-semibold text-sm text-charcoal">Dimas Anggara</span>
+                                <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">Hadir</span>
+                            </div>
+                            <p class="text-stone-600 text-sm">Selamat menempuh hidup baru Arya & Kirana! Semoga menjadi keluarga yang sakinah, mawaddah, warahmah.</p>
+                        </div>
+                        <div class="bg-white/70 p-4 rounded-2xl border border-gold-500/15">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="font-semibold text-sm text-charcoal">Nadia Putri</span>
+                                <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">Hadir</span>
+                            </div>
+                            <p class="text-stone-600 text-sm">Happy wedding Kirana cantik! Lancar sampai hari H ya, sampai ketemu di Jakarta!</p>
+                        </div>
+                        <div class="bg-white/70 p-4 rounded-2xl border border-gold-500/15">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="font-semibold text-sm text-charcoal">Rizky Febrian</span>
+                                <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-medium">Masih Ragu</span>
+                            </div>
+                            <p class="text-stone-600 text-sm">Barakallah untuk kedua mempelai. Semoga bahagia selalu dan cepat diberi momongan.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="bg-charcoal text-stone-400 text-center py-12 px-4 border-t border-gold-500/20">
+            <p class="font-serif text-3xl text-gold-300 mb-2">Arya & Kirana</p>
+            <p class="text-xs tracking-widest uppercase mb-6">Terima kasih atas doa & kehadiran Anda</p>
+            <p class="text-[11px] text-stone-500">Dibuat dengan cinta & sentuhan interaktif 3D</p>
+        </footer>
+    </main>
+
+    <!-- MODAL LIGHTBOX GALERI -->
+    <div id="lightbox-modal" class="fixed inset-0 z-50 bg-charcoal/90 backdrop-blur-md hidden items-center justify-center p-4" onclick="closeLightbox()">
+        <button class="absolute top-6 right-6 text-white text-3xl hover:text-gold-300 cursor-pointer">&times;</button>
+        <img id="lightbox-img" src="" alt="Preview" class="max-w-full max-h-[85vh] rounded-2xl shadow-2xl border border-gold-500/30">
+    </div>
+
+    <!-- =====================================================================
+         JAVASCRIPT: 3D ENGINE (THREE.JS), 3D TILT, AUDIO (TONE.JS), & INTERAKSI
+    ====================================================================== -->
+    <script>
+        // 1. BACA NAMA TAMU DARI URL PARAMETER (?to=Nama+Tamu)
+        const urlParams = new URLSearchParams(window.location.search);
+        const guestName = urlParams.get('to');
+        if (guestName) {
+            document.getElementById('guest-name-display').textContent = guestName;
+            document.getElementById('sender-name').value = guestName;
+        }
+
+        // 2. SISTEM NOTIFIKASI TOAST
+        function showToast(message) {
+            const toast = document.getElementById('toast-notification');
+            document.getElementById('toast-message').textContent = message;
+            toast.classList.remove('translate-y-[-150%]', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-[-150%]', 'opacity-0');
+            }, 3000);
+        }
+
+        // 3. SALIN REKENING KE CLIPBOARD (Kompatibel dengan iFrame)
+        function copyToClipboard(text, label) {
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast(`${label} berhasil disalin!`);
+        }
+
+        // 4. MUSIK LATAR INSTRUMENTAL LEMBUT (TONE.JS)
+        let isPlaying = false;
+        let musicLoop = null;
+
+        async function initAndPlayMusic() {
+            await Tone.start();
+            if (!musicLoop) {
+                const synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 0.8, decay: 0.5, sustain: 0.4, release: 2 }
+                }).toDestination();
+                synth.volume.value = -14;
+
+                // Melodi arpeggio romantis sederhana (C Major / A Minor / F Major / G Major)
+                const chords = [
+                    ["C4", "E4", "G4", "B4"],
+                    ["A3", "C4", "E4", "G4"],
+                    ["F3", "A3", "C4", "E4"],
+                    ["G3", "B3", "D4", "F4"]
+                ];
+                let step = 0;
+
+                musicLoop = new Tone.Loop((time) => {
+                    const currentChord = chords[Math.floor(step / 4) % chords.length];
+                    const note = currentChord[step % currentChord.length];
+                    synth.triggerAttackRelease(note, "2n", time);
+                    step++;
+                }, "2n");
+            }
+            Tone.Transport.start();
+            musicLoop.start(0);
+            isPlaying = true;
+            updateMusicIcon();
+        }
+
+        function toggleMusic() {
+            if (!isPlaying) {
+                initAndPlayMusic();
+            } else {
+                Tone.Transport.pause();
+                isPlaying = false;
+                updateMusicIcon();
+            }
+        }
+
+        function updateMusicIcon() {
+            const icon = document.getElementById('music-icon');
+            if (isPlaying) {
+                icon.className = "fa-solid fa-music text-xs animate-spin";
+                icon.style.animationDuration = "4s";
+            } else {
+                icon.className = "fa-solid fa-volume-xmark text-xs";
+            }
+        }
+
+        document.getElementById('music-toggle-btn').addEventListener('click', toggleMusic);
+
+        // 5. BUKA UNDANGAN DARI COVER
+        document.getElementById('open-invitation-btn').addEventListener('click', () => {
+            document.getElementById('cover-screen').classList.add('opened');
+            const controls = document.getElementById('floating-controls');
+            controls.classList.remove('opacity-0', 'pointer-events-none');
+            initAndPlayMusic();
+            triggerScrollReveal();
+        });
+
+        // 6. EFEK KEDALAMAN 3D TILT INTERAKTIF PADA KARTU (MOUSE & TOUCH)
+        const tiltCards = document.querySelectorAll('.tilt-card');
+        tiltCards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                // Sudut kemiringan maksimal 10 derajat
+                const rotateX = ((y - centerY) / centerY) * -10;
+                const rotateY = ((x - centerX) / centerX) * 10;
+
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+            });
+        });
+
+        // 7. ANIMASI SCROLL REVEAL 3D
+        function triggerScrollReveal() {
+            const reveals = document.querySelectorAll('.reveal-3d');
+            const windowHeight = window.innerHeight;
+            reveals.forEach(el => {
+                const elementTop = el.getBoundingClientRect().top;
+                if (elementTop < windowHeight - 80) {
+                    el.classList.add('active');
+                }
+            });
+        }
+        window.addEventListener('scroll', triggerScrollReveal);
+
+        // 8. COUNTDOWN TIMER REAL-TIME
+        const weddingDate = new Date("December 12, 2026 08:00:00").getTime();
+        setInterval(() => {
+            const now = new Date().getTime();
+            const distance = weddingDate - now;
+
+            if (distance > 0) {
+                document.getElementById("days").innerText = String(Math.floor(distance / (1000 * 60 * 60 * 24))).padStart(2, '0');
+                document.getElementById("hours").innerText = String(Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))).padStart(2, '0');
+                document.getElementById("minutes").innerText = String(Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+                document.getElementById("seconds").innerText = String(Math.floor((distance % (1000 * 60)) / 1000)).padStart(2, '0');
+            }
+        }, 1000);
+
+        // 9. FORM RSVP & BUKU TAMU DINAMIS
+        let wishCounter = 3;
+        document.getElementById('rsvp-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('sender-name').value.trim();
+            const status = document.getElementById('attendance-status').value;
+            const wish = document.getElementById('sender-wish').value.trim();
+
+            if (!name || !wish) return;
+
+            let badgeColor = "bg-emerald-100 text-emerald-800";
+            if (status === "Masih Ragu") badgeColor = "bg-amber-100 text-amber-800";
+            if (status === "Tidak Hadir") badgeColor = "bg-rose-100 text-rose-800";
+
+            const wishCard = document.createElement('div');
+            wishCard.className = "bg-white/90 p-4 rounded-2xl border border-gold-500/30 shadow-sm transition-all";
+            wishCard.innerHTML = `
+                <div class="flex items-center justify-between mb-1">
+                    <span class="font-semibold text-sm text-charcoal">${escapeHTML(name)}</span>
+                    <span class="text-[11px] px-2.5 py-0.5 rounded-full ${badgeColor} font-medium">${escapeHTML(status)}</span>
+                </div>
+                <p class="text-stone-600 text-sm">${escapeHTML(wish)}</p>
+            `;
+
+            const list = document.getElementById('wishes-list');
+            list.prepend(wishCard);
+
+            wishCounter++;
+            document.getElementById('wish-count').textContent = wishCounter;
+            document.getElementById('sender-wish').value = '';
+            showToast('Terima kasih! Konfirmasi & ucapan Anda telah terkirim.');
+        });
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            }[tag]));
+        }
+
+        // 10. LIGHTBOX GALERI
+        function openLightbox(src) {
+            const modal = document.getElementById('lightbox-modal');
+            document.getElementById('lightbox-img').src = src;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        function closeLightbox() {
+            const modal = document.getElementById('lightbox-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // 11. THREE.JS: EFEK KELOPAK BUNGA & DEBU EMAS MELAYANG DALAM RUANG 3D
+        window.onload = function() {
+            const canvas = document.getElementById('three-canvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 30;
+
+            const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Buat geometri kelopak bunga / partikel emas melayang
+            const particleCount = 90;
+            const particles = [];
+            const geometry = new THREE.PlaneGeometry(0.6, 0.8);
+
+            const colors = [0xC59B27, 0xE6C875, 0xF5D0C5, 0xFFF0E5];
+
+            for (let i = 0; i < particleCount; i++) {
+                const material = new THREE.MeshBasicMaterial({
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: Math.random() * 0.5 + 0.25
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+
+                mesh.position.x = (Math.random() - 0.5) * 60;
+                mesh.position.y = (Math.random() - 0.5) * 50;
+                mesh.position.z = (Math.random() - 0.5) * 35; // Kedalaman Z bervariasi
+
+                mesh.rotation.x = Math.random() * Math.PI;
+                mesh.rotation.y = Math.random() * Math.PI;
+
+                mesh.userData = {
+                    speedY: Math.random() * 0.03 + 0.015,
+                    speedRotX: (Math.random() - 0.5) * 0.02,
+                    speedRotY: (Math.random() - 0.5) * 0.02,
+                    swayOffset: Math.random() * Math.PI * 2
+                };
+
+                scene.add(mesh);
+                particles.push(mesh);
+            }
+
+            // Interaksi Parallax Kamera dengan Gerakan Mouse & Scroll
+            let mouseX = 0;
+            let mouseY = 0;
+            window.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX / window.innerWidth - 0.5) * 4;
+                mouseY = (e.clientY / window.innerHeight - 0.5) * 4;
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            const clock = new THREE.Clock();
+
+            function animate() {
+                requestAnimationFrame(animate);
+                const elapsedTime = clock.getElapsedTime();
+
+                particles.forEach(p => {
+                    p.position.y -= p.userData.speedY;
+                    p.position.x += Math.sin(elapsedTime + p.userData.swayOffset) * 0.015;
+                    p.rotation.x += p.userData.speedRotX;
+                    p.rotation.y += p.userData.speedRotY;
+
+                    if (p.position.y < -25) {
+                        p.position.y = 25;
+                    }
+                });
+
+                // Kamera bergerak halus mengikuti kursor & posisi scroll untuk efek kedalaman 3D
+                const scrollOffset = window.scrollY * 0.005;
+                camera.position.x += (mouseX - camera.position.x) * 0.05;
+                camera.position.y += (-mouseY - scrollOffset - camera.position.y) * 0.05;
+                camera.lookAt(0, -scrollOffset, 0);
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        };
+    </script>
+</body>
+</html>
